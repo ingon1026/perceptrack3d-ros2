@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "perceptrack3d"
+version = "0.1.0"
+description = "KITTI camera-LiDAR 3D perception pipeline: detection, fusion, tracking, evaluation"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# 셸 PYTHONPATH 에 ROS2(~/ros2_jazzy) 경로가 있으면 pytest 9 와 호환되지 않는 launch_* 플러그인이 자동 로드되므로 끈다.
+addopts = "-p no:launch_testing -p no:launch_ros -p no:launch_pytest"

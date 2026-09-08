@@ -1,0 +1,80 @@
+# PercepTrack3D 단일 설정 파일. 데이터 경로와 알고리즘 파라미터는 모두 여기서만 정의한다.
+# 코드에서는 perceptrack3d.config.load_config() 로 읽고, 절대경로를 소스에 하드코딩하지 않는다.
+
+dataset:
+  root: /home/ingon/datasets/KITTI/raw   # KITTI raw 최상위
+  date: "2011_09_26"
+  drive: "0015"
+  camera: image_02                        # 왼쪽 컬러 카메라 (주 RGB 입력)
+  # 파생 경로 (config.py 에서 조합):
+  #   calib_dir  = {root}/{date}
+  #   drive_dir  = {root}/{date}/{date}_drive_{drive}_sync
+  #   image_dir  = {drive_dir}/{camera}/data
+  #   velo_dir   = {drive_dir}/velodyne_points/data
+  #   tracklets  = {drive_dir}/tracklet_labels.xml
+  frame_id_width: 10                      # 파일명 자릿수: 0000000000.png
+
+detection:
+  model: yolov8n.pt                       # 사전학습 경량 YOLO. 학습하지 않는다.
+  conf_threshold: 0.25
+  iou_threshold: 0.45
+  device: cpu                             # CPU-first. "cuda:0" 로 바꾸면 GPU 사용
+  # COCO 클래스 중 유지할 도로 객체. KITTI 라벨과의 매핑은 docs/decisions.md 참고
+  keep_classes: [car, truck, bus, person, bicycle, motorcycle]
+  imgsz: 640
+
+fusion:
+  min_points: 5                           # 이보다 적으면 status = "sparse"
+  depth_percentile: 30                    # 박스 내 점들의 깊이 하위 30% 값을 대표 깊이로 (전경 우선)
+  depth_band_m: 1.5                       # 대표 깊이 ± 이 범위 안의 점만 중심 계산에 사용
+  box_shrink: 0.1                         # 2D 박스를 각 변 10% 축소해 배경 오염 감소
+  roi:                                    # Velodyne 좌표계 (x 전방, y 좌, z 상)
+    x_min: 0.0
+    x_max: 70.0
+    y_abs_max: 40.0
+    z_min: -3.0
+    z_max: 3.0
+  ground:
+    method: ransac                        # ransac = numpy 결정적 RANSAC (기본, 시드 고정) | open3d = Open3D segment_plane (빠르지만 0.19 는 실행마다 결과가 조금 다름)
+    distance_threshold: 0.2
+    ransac_n: 3
+    num_iterations: 200
+  cluster:
+    eps: 0.8                              # DBSCAN 이웃 반경 (m). 팀 E 스윕: 0.6 → 0.8 로 먼 물체(60 m, 링 간격 ~0.4 m) 클러스터 유지
+    min_points: 5                         # 팀 E 스윕: 8 → 5 (fusion.min_points 와 같게. 8 이면 5~7 점짜리 먼 차가 전부 no_cluster)
+  # --- 팀 E 추가 키 (Phase 5/6) ---
+  dedup_distance_m: 1.0                   # 서로 다른 2D 박스의 3D 중심 BEV 거리가 이보다 가까우면 confidence 낮은 쪽을 invalid(duplicate) 처리
+  cluster_select: largest                 # DBSCAN 클러스터 선택 규칙: largest(점 수 최대, 스윕에서 매칭 +6%) | nearest(깊이 중앙값 최소)
+  cluster_min_ratio: 0.3                  # nearest 일 때만: 최대 클러스터 점 수의 이 비율 이상인 후보 중 가장 가까운 것 (작은 노이즈 덩어리 배제)
+  use_obb: false                          # true 면 BEV PCA 로 yaw 를 추정한 OBB, false 면 AABB (yaw=0)
+  max_extent_m: 15.0                      # 클러스터 AABB 의 l 또는 w 가 이보다 크면 invalid(oversize): 벽·울타리와 붙은 경우
+  surface_offset:                         # LiDAR 는 물체의 보이는 면(표면)만 찍으므로 점 중앙값은 중심보다 센서 쪽으로 치우친다.
+    enable: true                          #   시선 방향 단위벡터 u 로 center += u * max(0, half_depth[class] - (u 방향 점 퍼짐)/2) 만큼 밀어 보정
+    half_depth_m:                         #   클래스별 "물체 깊이의 절반" prior (m). KITTI GT 길이 Car ~4.0, Van ~5.5, Truck ~9, Pedestrian ~0.7, Cyclist ~1.7 에서 유도
+      car: 2.0
+      truck: 3.0
+      bus: 4.0
+      person: 0.35
+      bicycle: 0.85
+      motorcycle: 1.0
+
+tracking:
+  dt: 0.1                                 # KITTI 10 Hz
+  gate_mahalanobis: 9.21                  # chi2 (3 dof, p=0.975) 근사 게이트
+  gate_euclidean_m: 3.0                   # 마할라노비스 대신 쓸 수 있는 단순 거리 게이트
+  gating: mahalanobis                     # mahalanobis | euclidean
+  max_misses: 3                           # 연속 미검출 허용 프레임 (misses > max_misses 이면 삭제)
+  min_hits: 3                             # 확정(confirmed) 되기 위한 최소 누적 매칭 수 (한 번 확정되면 유지)
+  match_same_class: false                 # true 면 class_name 이 같은 트랙-관측만 매칭 (YOLO car/truck 깜빡임 시 ID 끊길 수 있음)
+  process_noise_pos: 0.5                  # Q 대각: 한 프레임 동안 등속 가정에서 벗어나는 위치 std (m)
+  process_noise_vel: 1.0                  # Q 대각: 한 프레임 동안 속도가 변할 수 있는 std (m/s)
+  measurement_noise: 0.5                  # R = σ² I: 융합 중심 추정 오차 std (m)
+  initial_vel_std: 10.0                   # 새 트랙의 속도 prior std (m/s). 자차 기준 상대속도(마주오는 차 ~25 m/s) 를 덮도록 크게
+
+evaluation:
+  match_distance_m: 2.0                   # 예측 중심 ↔ GT 중심 매칭 임계값 (BEV 거리)
+  classes: [Car, Van, Truck, Pedestrian, Cyclist]   # KITTI tracklet objectType
+  frames: null                            # null = 전체 297 프레임, 또는 [start, end)
+
+outputs:
+  dir: outputs
