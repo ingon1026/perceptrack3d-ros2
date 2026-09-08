@@ -1,0 +1,25 @@
+Source: Qi, Liu, Wu, Su, Guibas, "Frustum PointNets for 3D Object Detection from RGB-D Data", CVPR 2018
+URL: https://arxiv.org/abs/1711.08488  (text taken from the arXiv v2 HTML rendering at https://ar5iv.labs.arxiv.org/html/1711.08488)
+Fetched: 2026-09-08. Excerpt only (quotation for study); copyright the authors.
+
+--- Sec. "Frustum Proposal" (Sec. 4.1 in arXiv v2) ---
+With a known camera projection matrix, a 2D bounding box can be lifted to a frustum (with near and far planes
+specified by depth sensor range) that defines a 3D search space for the object. We then collect all points within
+the frustum to form a frustum point cloud.
+
+--- Fig. 3 caption ---
+Challenges for 3D detection in frustum point cloud. Left: RGB image with an image region proposal for a person.
+Right: bird's eye view of the LiDAR points in the extruded frustum from 2D box, where we see a wide spread of
+points with both foreground occluder (bikes) and background clutter (building).
+
+--- Sec. "3D Instance Segmentation" (Sec. 4.2 in arXiv v2), first paragraph ---
+Given a 2D image region (and its corresponding 3D frustum), several methods might be used to obtain 3D location
+of the object: One straightforward solution is to directly regress 3D object locations (e.g., by 3D bounding box)
+from a depth map using 2D CNNs. However, this problem is not easy as occluding objects and background clutter is
+common in natural scenes (as in Fig. 3), which may severely distract the 3D localization task. Because objects are
+naturally separated in physical space, segmentation in 3D point cloud is much more natural and easier than that in
+images where pixels from distant objects can be near-by to each other.
+
+--- Sec. 4.2, later ---
+Here those "other" points could be points of non-relevant areas (such as ground, vegetation) or other instances
+that occlude or are behind the object of interest.

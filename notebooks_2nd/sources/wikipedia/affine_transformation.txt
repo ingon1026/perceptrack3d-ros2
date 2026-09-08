@@ -1,0 +1,17 @@
+SOURCE: https://en.wikipedia.org/wiki/Affine_transformation  ("Augmented matrix" 절)
+LICENSE: CC BY-SA 4.0 (발췌)
+FETCHED: 2026-09-08
+USED BY: notebooks_2nd/02_calibration_and_frames.ipynb (조각 2, 5)
+
+  Using an augmented matrix and an augmented vector, it is possible to represent
+  both the translation and the linear map using a single matrix multiplication.
+  The technique requires that all vectors be augmented with a "1" at the end,
+  and all matrices be augmented with an extra row of zeros at the bottom,
+  an extra column — the translation vector — to the right, and a "1" in the
+  lower right corner. If A is a matrix,
+
+      [ y ]   [ A       b ] [ x ]
+      [ 1 ] = [ 0 ... 0 1 ] [ 1 ]
+
+  is equivalent to the following   y = A x + b.
+  The above-mentioned augmented matrix is called an affine transformation matrix.

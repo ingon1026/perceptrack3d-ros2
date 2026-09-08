@@ -1,0 +1,35 @@
+SOURCE: https://numpy.org/doc/stable/reference/generated/numpy.fromfile.html  (NumPy v2.5 Manual)
+LICENSE: NumPy documentation (BSD-3-Clause 프로젝트 문서), 발췌
+FETCHED: 2026-09-08
+USED BY: notebooks_2nd/01_kitti_data_check.ipynb (조각 1)
+
+numpy.fromfile(file, dtype=np.float64, count=-1, sep='', offset=0, *, like=None)
+
+    Construct an array from data in a text or binary file.
+
+    A highly efficient way of reading binary data with a known data-type,
+    as well as parsing simply formatted text files. Data written using the
+    tofile method can be read using this function.
+
+    Parameters
+        file : file or str or Path
+            An open file object, a string containing the filename, or a Path object.
+        dtype : data-type
+            Data type of the returned array.
+            For binary files, it is used to determine the size and byte-order
+            of the items in the file.
+        count : int
+            Number of items to read. -1 means all items (i.e., the complete file).
+        sep : str
+            Separator between items if file is a text file.
+            Empty ("") separator means the file should be treated as binary.
+        offset : int
+            The offset (in bytes) from the file's current position. Defaults to 0.
+            Only permitted for binary files.
+
+    Notes
+        Do not rely on the combination of tofile and fromfile for
+        data storage, as the binary files generated are not platform
+        independent. In particular, no byte-order or data-type information is
+        saved. Data can be stored in the platform independent .npy format
+        using save and load instead.

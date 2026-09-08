@@ -1,0 +1,10 @@
+SOURCE: https://en.wikipedia.org/wiki/Orthogonal_matrix
+LICENSE: CC BY-SA 4.0 (발췌)
+FETCHED: 2026-09-08
+USED BY: notebooks_2nd/02_calibration_and_frames.ipynb (조각 5)
+
+  One way to express this is  Q^T Q = Q Q^T = I,
+  where Q^T is the transpose of Q and I is the identity matrix.
+  This leads to the equivalent characterization: a matrix Q is orthogonal
+  if its transpose is equal to its inverse:  Q^T = Q^{-1},
+  where Q^{-1} is the inverse of Q.

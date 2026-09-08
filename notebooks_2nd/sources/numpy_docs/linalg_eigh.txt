@@ -1,0 +1,75 @@
+Source: https://numpy.org/doc/stable/reference/generated/numpy.linalg.eigh.html
+Fetched: 2026-09-08 (text extract of the official documentation page; NumPy docs are BSD-3-Clause, scikit-learn docs BSD-3-Clause)
+
+eigh(a, UPLO='L')[source]#
+Return the eigenvalues and eigenvectors of a complex Hermitian
+(conjugate symmetric) or a real symmetric matrix.
+Returns two objects, a 1-D array containing the eigenvalues of a, and
+a 2-D square array or matrix (depending on the input type) of the
+corresponding eigenvectors (in columns).
+Parameters:
+a(…, M, M) arrayHermitian or real symmetric matrices whose eigenvalues and
+eigenvectors are to be computed.
+UPLO{‘L’, ‘U’}, optionalSpecifies whether the calculation is done with the lower triangular
+part of a (‘L’, default) or the upper triangular part (‘U’).
+Irrespective of this value only the real parts of the diagonal will
+be considered in the computation to preserve the notion of a Hermitian
+matrix. It therefore follows that the imaginary part of the diagonal
+will always be treated as zero.
+Returns:
+A namedtuple with the following attributes:
+eigenvalues(…, M) ndarrayThe eigenvalues in ascending order, each repeated according to
+its multiplicity.
+eigenvectors{(…, M, M) ndarray, (…, M, M) matrix}The column eigenvectors[:, i] is the normalized eigenvector
+corresponding to the eigenvalue eigenvalues[i].  Will return a
+matrix object if a is a matrix object.
+Raises:
+LinAlgErrorIf the eigenvalue computation does not converge.
+See also
+eigvalsheigenvalues of real symmetric or complex Hermitian (conjugate symmetric) arrays.
+eigeigenvalues and right eigenvectors for non-symmetric arrays.
+eigvalseigenvalues of non-symmetric arrays.
+scipy.linalg.eighSimilar function in SciPy (but also solves the generalized eigenvalue problem).
+Notes
+Broadcasting rules apply, see the numpy.linalg documentation for
+details.
+The eigenvalues/eigenvectors are computed using LAPACK routines _syevd,
+_heevd.
+The eigenvalues of real symmetric or complex Hermitian matrices are always
+real. [1] The array eigenvalues of (column) eigenvectors is unitary and
+a, eigenvalues, and eigenvectors satisfy the equations dot(a,
+eigenvectors[:, i]) = eigenvalues[i] * eigenvectors[:, i].
+References
+[1]
+G. Strang, Linear Algebra and Its Applications, 2nd Ed., Orlando,
+FL, Academic Press, Inc., 1980, pg. 222.
+Examples
+Try it in your browser!
+>>> import numpy as np
+>>> from numpy import linalg as LA
+>>> a = np.array([[1, -2j], [2j, 5]])
+>>> a
+array([[ 1.+0.j, -0.-2.j],
+       [ 0.+2.j,  5.+0.j]])
+>>> eigenvalues, eigenvectors = LA.eigh(a)
+>>> eigenvalues
+array([0.17157288, 5.82842712])
+>>> eigenvectors
+array([[-0.92387953+0.j        , -0.38268343+0.j        ], # may vary
+       [ 0.        +0.38268343j,  0.        -0.92387953j]])
+>>> (np.dot(a, eigenvectors[:, 0]) -
+... eigenvalues[0] * eigenvectors[:, 0])  # verify 1st eigenval/vec pair
+array([5.55111512e-17+0.0000000e+00j, 0.00000000e+00+1.2490009e-16j])
+>>> (np.dot(a, eigenvectors[:, 1]) -
+... eigenvalues[1] * eigenvectors[:, 1])  # verify 2nd eigenval/vec pair
+array([0.+0.j, 0.+0.j])
+>>> A = np.matrix(a) # what happens if input is a matrix object
+>>> A
+matrix([[ 1.+0.j, -0.-2.j],
+        [ 0.+2.j,  5.+0.j]])
+>>> eigenvalues, eigenvectors = LA.eigh(A)
+>>> eigenvalues
+array([0.17157288, 5.82842712])
+>>> eigenvectors
+matrix([[-0.92387953+0.j        , -0.38268343+0.j        ], # may vary
+        [ 0.        +0.38268343

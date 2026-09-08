@@ -1,0 +1,78 @@
+Source: https://numpy.org/doc/stable/user/basics.indexing.html#boolean-array-indexing
+Fetched: 2026-09-08 (text extract of the official documentation page; NumPy docs are BSD-3-Clause, scikit-learn docs BSD-3-Clause)
+
+Boolean array indexing#
+This advanced indexing occurs when obj is an array object of Boolean
+type, such as may be returned from comparison operators. A single
+boolean index array is practically identical to x[obj.nonzero()] where,
+as described above, obj.nonzero() returns a
+tuple (of length obj.ndim) of integer index
+arrays showing the True elements of obj. However, it is
+faster when obj.shape == x.shape.
+If obj.ndim == x.ndim, x[obj]
+returns a 1-dimensional array filled with the elements of x
+corresponding to the True values of obj. The search order
+will be row-major, C-style. An index error will be raised if
+the shape of obj does not match the corresponding dimensions of x,
+regardless of whether those values are True or
+False.
+A common use case for this is filtering for desired element values.
+For example, one may wish to select all entries from an array which
+are not numpy.nan:
+>>> x = np.array([[1., 2.], [np.nan, 3.], [np.nan, np.nan]])
+>>> x[~np.isnan(x)]
+array([1., 2., 3.])
+Or wish to add a constant to all negative elements:
+>>> x = np.array([1., -1., -2., 3])
+>>> x[x < 0] += 20
+>>> x
+array([ 1., 19., 18., 3.])
+In general if an index includes a Boolean array, the result will be
+identical to inserting obj.nonzero() into the same position
+and using the integer array indexing mechanism described above.
+x[ind_1, boolean_array, ind_2] is equivalent to
+x[(ind_1,) + boolean_array.nonzero() + (ind_2,)].
+If there is only one Boolean array and no integer indexing array present,
+this is straightforward. Care must only be taken to make sure that the
+boolean index has exactly as many dimensions as it is supposed to work
+with.
+In general, when the boolean array has fewer dimensions than the array being
+indexed, this is equivalent to x[b, ...], which means x is indexed by b
+followed by as many : as are needed to fill out the rank of x. Thus the
+shape of the result is one dimension containing the number of True elements of
+the boolean array, followed by the remaining dimensions of the array being
+indexed:
+>>> x = np.arange(35).reshape(5, 7)
+>>> b = x > 20
+>>> b[:, 5]
+array([False, False, False,  True,  True])
+>>> x[b[:, 5]]
+array([[21, 22, 23, 24, 25, 26, 27],
+      [28, 29, 30, 31, 32, 33, 34]])
+Here the 4th and 5th rows are selected from the indexed array and
+combined to make a 2-D array.
+Example
+From an array, select all rows which sum up to less or equal two:
+>>> x = np.array([[0, 1], [1, 1], [2, 2]])
+>>> rowsum = x.sum(-1)
+>>> x[rowsum <= 2, :]
+array([[0, 1],
+       [1, 1]])
+Combining multiple Boolean indexing arrays or a Boolean with an integer
+indexing array can best be understood with the
+obj.nonzero() analogy. The function ix_
+also supports boolean arrays and will work without any surprises.
+Example
+Use boolean indexing to select all rows adding up to an even
+number. At the same time columns 0 and 2 should be selected with an
+advanced integer index. Using the ix_ function this can be done
+with:
+>>> x = np.array([[ 0,  1,  2],
+...               [ 3,  4,  5],
+...               [ 6,  7,  8],
+...               [ 9, 10, 11]])
+>>> rows = (x.sum(-1) % 2) == 0
+>>> rows
+array([False,  True, False,  True])
+>>> columns = [0, 2]
+>>> x[np.ix_(rows, columns
