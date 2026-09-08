@@ -1,0 +1,96 @@
+# 참고 자료 (References)
+
+형식: URL — 한 줄 요약 (어느 단계에서 썼는지)
+
+## 데이터셋 / 캘리브레이션
+- https://www.cvlibs.net/datasets/kitti/raw_data.php — KITTI raw 데이터 구조, 센서 배치, 좌표계 정의 (Phase 0–2)
+- https://www.cvlibs.net/datasets/kitti/setup.php — 센서 좌표계 그림: Velodyne x 전방/y 좌/z 상, 카메라 x 우/y 하/z 전방 (Phase 2)
+- Geiger et al., "Vision meets Robotics: The KITTI Dataset", IJRR 2013 — 투영식 y = P_rect @ R_rect @ T_velo_to_cam @ x 의 원 출처 (Phase 2–3)
+- https://github.com/utiasSTARS/pykitti — raw 데이터 파싱 참고 구현 (직접 복사하지 않고 포맷 확인용) (Phase 1–2)
+
+## 팀 C (Phase 7) — 다중 객체 추적
+- https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linear_sum_assignment.html — 헝가리안 할당(직사각 행렬 지원, inf 불가 → 큰 유한값으로 치환 후 사후 제거) (Phase 7)
+- Kalman, R. E., "A New Approach to Linear Filtering and Prediction Problems", J. Basic Eng. 82(1), 1960 — 칼만 필터 원 논문. 구현은 Bar-Shalom, Li, Kirubarajan, *Estimation with Applications to Tracking and Navigation* (Wiley 2001) 의 표준 예측/갱신식과 chi² 게이팅을 따름 (Phase 7)
+- https://arxiv.org/abs/1602.00763 — Bewley et al., "Simple Online and Realtime Tracking" (SORT), ICIP 2016. 등속 KF + 헝가리안 + hit/miss 생명주기라는 구조만 참고, 코드 미복사. 우리는 2D IoU 대신 3D 위치의 마할라노비스 거리를 비용으로 사용 (Phase 7)
+- https://numpy.org/doc/stable/reference/generated/numpy.einsum.html — 여러 관측의 d² = diffᵀ S⁻¹ diff 를 한 번에 계산하는 einsum 표기 (Phase 7)
+
+## 팀 D (Phase 8) — tracklet GT 파서 / 평가 메트릭
+- https://www.cvlibs.net/datasets/kitti/raw_data.php — raw 페이지: tracklet 라벨은 "3D object tracklet labels ... stored as xml file", 파서는 devkit 참고 (Phase 8)
+- https://s3.eu-central-1.amazonaws.com/avg-kitti/devkit_raw_data.zip — 공식 raw devkit. `readme.txt` "Tracklet Labels": **"All tracklets are represented in Velodyne coordinates"**, 클래스 목록 Car/Van/Truck/Pedestrian/Person (sitting)/Cyclist/Tram/Misc (Phase 8)
+- devkit `cpp/tracklets.h` — `tPose{tx,ty,tz (translation wrt. Velodyne), rx,ry,rz (rotation wrt. Velodyne)}`, enum: state 0 UNSET/1 INTERP/2 LABELED, occlusion -1/0 VISIBLE/1 PARTLY/2 FULLY, truncation -1/0 IN_IMAGE/1 TRUNCATED/2 OUT_IMAGE/99 BEHIND_IMAGE; `pose_idx = frame - first_frame` (Phase 8)
+- devkit `matlab/run_demoTracklets.m` — 박스 모서리 `x=±l/2, y=±w/2, z=[0..h]` 에 `R=Rz(rz)` 곱하고 (tx,ty,tz) 더함 → **tz 는 바닥 중심, l↔x(진행), w↔y, rz 는 z 축 yaw(반시계 양수)**. 주석의 "x facing right" 는 코드와 다르므로 코드를 따름 (Phase 8)
+- https://github.com/utiasSTARS/pykitti — 확인 결과 tracklet XML 파서는 없음(raw/odometry/tracking 만). Phase 8 규약 근거로는 사용하지 않음
+- Bernardin & Stiefelhagen, "Evaluating Multiple Object Tracking Performance: The CLEAR MOT Metrics", EURASIP JIVP 2008 — ID switch(IDSW) 정의: 같은 GT 가 직전 매칭 트랙과 다른 트랙에 붙을 때 +1 (Phase 8 `count_id_switches`)
+- https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linear_sum_assignment.html — 헝가리안 1:1 할당. 행 전체가 inf 면 실패하므로 게이트 밖은 큰 유한 비용 사용 (Phase 8 `match_by_center_distance`)
+- Sutherland & Hodgman, "Reentrant Polygon Clipping", CACM 1974 — 볼록 다각형 클리핑으로 회전 박스 교집합 넓이 계산 (Phase 8 `bev_iou`, shapely 미사용)
+
+## 팀 B (Phase 4)
+- https://docs.ultralytics.com/modes/predict/ — predict() 입력: np.ndarray 는 "HWC, BGR, uint8(0-255)" 그대로 받음(cv2.imread 결과 색 변환 불필요). Results.boxes.xyxy/conf/cls, names 구조. 인자 기본값 conf=0.25, iou=0.7, imgsz=640, max_det=300, save=False(Python) (Phase 4)
+- https://docs.ultralytics.com/datasets/detect/coco/ — COCO 80 클래스 id: 0 person, 1 bicycle, 2 car, 3 motorcycle, 5 bus, 7 truck (Phase 4, keep_classes)
+- https://docs.ultralytics.com/models/yolov8/ — yolov8n 모델 규모(약 3.2M 파라미터)와 COCO mAP; CPU 기준선으로 선택한 근거 (Phase 4)
+- https://docs.ultralytics.com/usage/cfg/ — classes= 필터(NMS 전에 클래스 제한), agnostic_nms(기본 False: 클래스별 NMS → 다른 클래스 박스는 서로 억제 안 함) (Phase 4)
+- https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/downloads.py — attempt_download_asset: 절대경로를 주면 그 경로로 가중치를 내려받음 → outputs/models/ 에 두는 근거 (Phase 4)
+
+## 팀 A (Phase 1–3)
+- https://www.cvlibs.net/datasets/kitti/raw_data.php (devkit_raw_data.zip 의 readme.txt) — .bin 은 float32 [x,y,z,r] 연속 저장; velodyne timestamps.txt 는 스캐너가 정면을 향해 카메라를 트리거한 시각; 투영식 `Y = P_rect_xx * R_rect_00 * (R|T)_velo_to_cam * X` 에서 R_rect_00 을 4×4 로 확장할 때 [3,3]=1 (Phase 1–3)
+- https://docs.opencv.org/4.x/d4/da8/group__imgcodecs.html — `cv2.imread` 는 컬러 이미지를 **B G R** 순서로 돌려준다; `imwrite` 도 BGR 을 기대 (Phase 1)
+- https://numpy.org/doc/stable/reference/generated/numpy.fromfile.html — 헤더 없는 이진 파일 읽기. 파일 끝의 자투리 바이트는 조용히 버려지므로 크기 검사는 읽기 전에 해야 함 (Phase 1)
+- https://www.open3d.org/docs/release/python_api/open3d.visualization.rendering.OffscreenRenderer.html — headless(EGL) 오프스크린 렌더링. WSL 에서 창 없이 PNG 저장에 사용 (Phase 1)
+- https://matplotlib.org/stable/users/explain/colors/colormaps.html — 순차형(perceptually uniform) 컬러맵 viridis/plasma. 깊이·높이처럼 크기(magnitude)를 나타낼 때 무지개(jet) 대신 사용 (Phase 1, 3)
+- https://en.wikipedia.org/wiki/Orthogonal_Procrustes_problem — 행렬을 가장 가까운 회전으로 투영: SVD `R = U Vᵀ` (det<0 이면 마지막 열 부호 반전). 텍스트 반올림으로 직교가 깨진 캘리브레이션 회전 보정에 사용 (Phase 2)
+- https://www.cvlibs.net/datasets/kitti/setup.php — 센서 배치 수치: Velodyne 은 cam0 보다 뒤·위에 있음 → velo 원점의 rect z ≈ −0.27 m 가 나오는 근거 (Phase 2)
+- https://nbconvert.readthedocs.io/en/latest/execute_api.html — `jupyter nbconvert --execute --inplace` 로 노트북을 실행해 출력을 저장 (Phase 1–3)
+
+## 팀 I (Phase 10) — C++ 투영/ROI/frustum + pybind11
+- https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html — `py::array_t<T, c_style | forcecast>`: 조건(dtype, C-연속)을 만족하면 복사 없이 참조, 아니면 변환 복사. `unchecked<2>()` 로 검사 없는 원소 접근. 배열 생성자에 `base` 핸들을 주면 그 객체가 버퍼 수명을 소유 (capsule 로 `std::vector` 를 넘기는 근거) (Phase 10)
+- https://pybind11.readthedocs.io/en/stable/advanced/cast/eigen.html — 고정 크기 `Eigen::Matrix<double,3,4>` 는 값으로 복사(12개 double, 무시 가능), `Eigen::Ref<const T>` 는 stride 가 맞으면 복사 없음 (Phase 10)
+- https://eigen.tuxfamily.org/dox/classEigen_1_1Ref.html — `Ref<const MatrixType, 0, OuterStride<>>`: 임의의 outer stride 를 허용해 (N,4) 배열의 앞 3열을 복사 없이 참조. `Ref<const>` 는 레이아웃이 안 맞으면 조용히 임시 복사를 만들므로 stride 옵션이 필수 (Phase 10)
+- https://eigen.tuxfamily.org/dox/group__TutorialMapClass.html — `Eigen::Map` 으로 외부 버퍼(numpy) 를 Eigen 행렬처럼 다루기, `OuterStride` 생성자 (Phase 10)
+- https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines — F.16 (싼 값은 값으로, 아니면 `const&`), F.20 (출력은 반환값으로), F.6 (예외 없으면 `noexcept`), R.1 (RAII), R.3 (원시 포인터는 비소유), R.11 (`new`/`delete` 직접 호출 금지), Con.1–Con.3 (기본은 `const`), ES.5 (스코프 최소화). `projection.hpp`/`bindings.cpp` 설계 근거 (Phase 10)
+- https://numpy.org/neps/nep-0050-scalar-promotion.html — NumPy 2 스칼라 승격 규칙: float32 배열과 파이썬 float 비교는 float32 로 수행. 단, 팀 E `roi_filter` 는 비교 전에 `astype(float64)` 를 하므로 실제로는 float64 비교 → `RoiParams` 를 double 로 맞춤. 기준 구현의 dtype 경로를 먼저 확인해야 한다는 교훈 (Phase 10)
+- https://numpy.org/doc/stable/reference/generated/numpy.matmul.html — `pts_h @ P.T` 가 float64 (N,4)x(4,3) 로 계산되므로 C++ 도 double 로 계산해야 경계 판정이 일치 (Phase 10)
+- https://cmake.org/cmake/help/latest/module/FindPython.html — `Python_EXECUTABLE` 힌트와 `Development.Module` 컴포넌트 (확장 모듈은 libpython 링크 불필요). 셸 PYTHONPATH 의 ROS2 python 을 피해 venv 인터프리터를 지정하는 근거 (Phase 10)
+- https://pybind11.readthedocs.io/en/stable/compiling.html#building-with-cmake — `pybind11_add_module` 기본 동작: Release 에서 LTO, `-fvisibility=hidden`, `python -m pybind11 --cmakedir` 로 CMake 설정 경로 얻기 (Phase 10)
+- https://google.github.io/googletest/primer.html — `TEST`, `EXPECT_EQ`/`ASSERT_EQ`/`EXPECT_FLOAT_EQ` 의미, `gtest_main` 링크 (Phase 10)
+- https://docs.python.org/3/library/time.html#time.perf_counter — 벤치마크용 단조 고해상도 시계 (Phase 10)
+- https://docs.python.org/3/library/profile.html — `cProfile`/`pstats.sort_stats("tottime"|"cumulative")` 로 함수별 시간 상위 목록 (Phase 10)
+
+## 팀 H (Phase 9) — ROS2 Jazzy 통합
+- https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html — rclpy Node / create_publisher / create_subscription / create_timer 기본 구조. 노드 6 개 모두 이 형태 (Phase 9)
+- https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-Python.html — declare_parameter(이름, 기본값) 로 타입이 정해지고 `--params-file` / launch 로 덮어씀. 모든 노드가 `config_path`, `rate_hz` 를 이렇게 받음 (Phase 9)
+- https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Creating-Launch-Files.html , https://docs.ros.org/en/jazzy/How-To-Guides/Launch-file-different-formats.html — launch_ros `Node(parameters=[yaml, dict])`, DeclareLaunchArgument / LaunchConfiguration, IfCondition 으로 RViz 선택 실행 (Phase 9)
+- https://docs.ros.org/en/jazzy/How-To-Guides/Parameters-YAML-files-migration-guide.html , https://docs.ros.org/en/jazzy/How-To-Guides/Node-arguments.html — params.yaml 의 `/**` 와일드카드. **정확한 노드 이름 섹션이 와일드카드보다 우선** 하므로 launch dict(`/**` 로 기록됨) 로 덮어쓰려면 yaml 도 `/**` 로 둬야 함 — 실측으로 확인 (Phase 9)
+- https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Tf2/Writing-A-Tf2-Static-Broadcaster-Py.html — StaticTransformBroadcaster; `/tf_static` 은 transient_local(latched) 라 늦게 켜진 노드도 받음. TransformStamped 의 transform 은 child 좌표 → parent 좌표 변환 (Phase 9)
+- https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Tf2/Writing-A-Tf2-Listener-Py.html — Buffer + TransformListener, `lookup_transform(target, source, Time())` 는 source 좌표의 점을 target 좌표로 옮기는 변환을 돌려줌 (tf_calib.py) (Phase 9)
+- https://github.com/ros2/geometry2/blob/jazzy/tf2_ros/src/tf2_echo.cpp — `tf2_echo A B` = lookupTransform(A, B): "B 프레임 데이터를 A 프레임으로 옮기는 변환" 을 출력. 따라서 `tf2_echo camera_02 velodyne` 이 calib 의 T_velo_to_rect 와 같아야 함 (Phase 9)
+- https://www.ros.org/reps/rep-0103.html , https://www.ros.org/reps/rep-0105.html — 좌표 축 규약(x 전방, y 좌, z 상, 오른손, m) 과 base_link 프레임 이름. KITTI Velodyne 축이 이와 같아 변환 없이 `velodyne` 을 Fixed Frame 으로 씀 (Phase 9)
+- https://docs.ros2.org/latest/api/sensor_msgs/msg/PointCloud2.html , https://docs.ros2.org/latest/api/sensor_msgs/msg/PointField.html — fields(name, offset, datatype, count), point_step, row_step, is_dense 의 의미. KITTI float32 x4 배치를 point_step=16 으로 그대로 tobytes() (Phase 9)
+- https://github.com/ros2/common_interfaces/blob/jazzy/sensor_msgs_py/sensor_msgs_py/point_cloud2.py — read_points_numpy / create_cloud 참조 구현. 발행은 직접 패킹(≈1 ms), 검증 스크립트에서 read_points_numpy 로 왕복 확인 (Phase 9)
+- https://docs.ros2.org/latest/api/sensor_msgs/msg/Image.html , https://docs.ros2.org/latest/api/sensor_msgs/msg/CameraInfo.html — Image(encoding="bgr8", step=W*3), CameraInfo(K 3x3, R 3x3, P 3x4, D). 정류 이미지이므로 D=0, P=P_rect_02 (Phase 9)
+- https://github.com/ros-perception/vision_msgs/tree/ros2/vision_msgs/msg — Detection2D/3D(header, results[ObjectHypothesisWithPose], bbox, id), BoundingBox3D(center Pose, size Vector3). class_id 는 문자열이라 COCO 이름을 그대로 넣음 (Phase 9)
+- https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Quality-of-Service-Settings.html — RELIABLE 발행자는 BEST_EFFORT 구독자와도 호환되지만 반대는 불가 → 재생 데모는 RELIABLE(depth 10) 로 통일 (Phase 9)
+- https://github.com/ros2/message_filters (python `ApproximateTimeSynchronizer(fs, queue_size, slop)`) — stamp 차이가 slop 이하인 메시지 묶음을 한 콜백으로 (Phase 9)
+- https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Recording-And-Playing-Back-Data/Recording-And-Playing-Back-Data.html — `ros2 bag record -o DIR 토픽...`, `ros2 bag info` (scripts/record_bag.sh) (Phase 9)
+- https://pytorch.org/docs/stable/generated/torch.set_num_threads.html , https://www.openmp.org/spec-html/5.0/openmpse50.html (OMP_NUM_THREADS) — 프로세스 6 개가 각각 코어 전부를 스레드로 잡으면 스핀 대기 경합으로 YOLO 가 15 ms → 120~180 ms 로 느려짐. launch 의 omp_threads 인자로 프로세스별 상한 (Phase 9)
+
+## 팀 E (Phase 5, 6) — 카메라–LiDAR 융합
+- https://www.open3d.org/docs/release/python_api/open3d.geometry.PointCloud.html#open3d.geometry.PointCloud.segment_plane — RANSAC 평면 분할: (distance_threshold, ransac_n, num_iterations) → (평면 [a,b,c,d], inlier 인덱스). 난수 기반이라 `open3d.utility.random.seed` 로 고정 (Phase 6 `remove_ground`)
+- https://www.open3d.org/docs/release/python_api/open3d.geometry.PointCloud.html#open3d.geometry.PointCloud.cluster_dbscan — DBSCAN: (eps, min_points) → 라벨, −1 = noise. sklearn DBSCAN 보다 3배 빠름 (프러스텀 점만 넣으면 프레임당 1~3 ms) (Phase 6 `cluster_points`)
+- https://www.open3d.org/docs/release/tutorial/geometry/pointcloud.html — Plane segmentation / DBSCAN clustering 튜토리얼 (개념 확인용)
+- Ester, Kriegel, Sander, Xu, "A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise", KDD 1996 — DBSCAN 원 논문: 핵심점(eps 안 min_points 이웃)·경계점·noise 정의 (Phase 6)
+- Fischler & Bolles, "Random Sample Consensus", CACM 1981 — RANSAC 원 논문 (Phase 6 지면 제거)
+- https://arxiv.org/abs/1711.08488 — Qi et al., "Frustum PointNets for 3D Object Detection from RGB-D Data", CVPR 2018. **개념만 참고**: 2D 박스 → 3D 프러스텀 안 점 → 전경 분할 → 3D 박스. 우리는 학습 대신 RANSAC + DBSCAN + 중앙값으로 같은 단계를 고전적으로 구현했고, 이 논문이 학습으로 푸는 "표면 → 중심(amodal center)" 문제를 클래스 prior 오프셋으로 근사했다 (Phase 5–6)
+- https://numpy.org/doc/stable/reference/generated/numpy.percentile.html — `method="nearest"` 로 실제 표본 값을 백분위로 돌려받음 (보간값이면 밴드가 빌 수 있음) (Phase 5)
+- https://numpy.org/doc/stable/reference/generated/numpy.linalg.eigh.html — 대칭 공분산 행렬의 고유분해(BEV PCA). 고유값 오름차순 (Phase 6 `obb_from_points_bev`)
+
+## 팀 G (Phase 8 후반) — 정량 평가 / 노트북 06
+- Bernardin & Stiefelhagen, "Evaluating Multiple Object Tracking Performance: The CLEAR MOT Metrics", EURASIP JIVP 2008, https://doi.org/10.1155/2008/246309 — MOTA = 1 − (FN + FP + IDSW)/GT, MOTP, 프레임별 1:1 매칭 후 IDSW 집계. 우리 `evaluate.py` 의 MOTA·IDSW 정의 (Phase 8)
+- Li, Huang, Nevatia, "Learning to Associate: HybridBoosted Multi-Target Tracker for Crowded Scene", CVPR 2009 — MT(≥ 80 %)/PT/ML(≤ 20 %) 와 fragmentation 의 통상 정의. 우리는 MT/ML 을 단일 ID 커버 비율로 근사 (Phase 8 `tracking_metrics`)
+- https://www.cvlibs.net/datasets/kitti/eval_object.php — KITTI 3D/BEV 검출 평가: Car 는 IoU ≥ 0.7, Pedestrian/Cyclist 는 ≥ 0.5, easy/moderate/hard 구분(높이·가림·잘림). 우리 박스는 크기 추정이 약해 0.5 만 보고하고 0.7 은 한계로 명시 (Phase 8)
+- https://www.nuscenes.org/object-detection — nuScenes 검출 지표: BEV 중심 거리 임계값 {0.5, 1, 2, 4} m 로 매칭 (IoU 대신). 우리 2 m / 4 m 매칭의 근거 (Phase 8)
+- https://github.com/cheind/py-motmetrics — CLEAR MOT 참조 구현 (사용하지 않음, 정의 확인용): IDSW 는 "직전 매칭 트랙" 과 비교, 프레임 공백이 있어도 마지막 매칭을 기억 (Phase 8 `count_id_switches` 와 동일)
+- https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html , https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.merge.html — 프레임·구간·클래스·tracklet 별 집계와 per-frame 표 결합 (Phase 8 `evaluate.py`)
+- https://pandas.pydata.org/docs/user_guide/reshaping.html — long(tidy) 형식: 한 행 = (variant, threshold, section, group, metric, value). results.csv 규약 (Phase 8)
+- https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.barh.html , https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.boxplot.html — 간트차트(barh, left/height) 와 런타임 박스플롯 (Phase 8 플롯 ⑤ ⑥)
+- https://matplotlib.org/stable/gallery/images_contours_and_fields/image_annotated_heatmap.html — 비용 행렬 히트맵에 값 주석 (노트북 06 §6.3)
+- https://nbformat.readthedocs.io/en/latest/api.html , https://nbconvert.readthedocs.io/en/latest/execute_api.html — 노트북을 코드로 생성하고 `nbconvert --execute --inplace` 로 실행 검증 (노트북 06)
