@@ -9,6 +9,11 @@
 </p>
 <p align="center"><sub><code>python scripts/run_system.py</code> 한 명령의 출력. 위: 카메라 이미지에 YOLO 2D 박스와 칼만 트랙 ID·거리. 아래: LiDAR BEV 위에 트랙(색), 속도 화살표, 궤적, GT(초록). 297프레임 중 앞 150프레임, 실시간 속도.</sub></p>
 
+<p align="center">
+  <img src="docs/images/lidar3d_demo.gif" alt="LiDAR 3D 뷰: 자차 뒤 위 카메라에서 본 점군(높이 색)과 3D 박스" width="720">
+</p>
+<p align="center"><sub><code>--view3d</code>: 같은 프레임의 LiDAR 3D 뷰. 자차(흰 상자) 뒤 위에서 앞을 본 시점, 점 색 = 높이(지면 파랑 → 건물·나무 빨강), 초록 = GT 3D 박스, 그 외 색 = 트랙 ID.</sub></p>
+
 <table align="center"><tr>
 <td align="center"><img src="docs/images/01_lidar_pointcloud_3d.png" width="430"><br><sub>Velodyne HDL-64E 점군 (프레임 0, 3D)</sub></td>
 <td align="center"><img src="docs/images/01_lidar_pointcloud_bev.png" width="300"><br><sub>같은 프레임 BEV (x 전방 ↑, y 좌 ←, 색 = 높이 z)</sub></td>
