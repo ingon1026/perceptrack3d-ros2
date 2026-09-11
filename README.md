@@ -4,6 +4,18 @@
 
 > 한 문장 문제 정의: *2D 검출기가 이미지에서 찾은 물체가 3D 공간의 어디에 있고, 프레임 사이에서 같은 물체인지 알아내라.*
 
+<p align="center">
+  <img src="docs/images/system_demo.gif" alt="PercepTrack3D 통합 실행: 위 = 2D 검출 + 트랙 ID, 아래 = BEV 트랙·궤적·GT" width="720">
+</p>
+<p align="center"><sub><code>python scripts/run_system.py</code> 한 명령의 출력. 위: 카메라 이미지에 YOLO 2D 박스와 칼만 트랙 ID·거리. 아래: LiDAR BEV 위에 트랙(색), 속도 화살표, 궤적, GT(초록). 297프레임 중 앞 150프레임, 실시간 속도.</sub></p>
+
+<table align="center"><tr>
+<td align="center"><img src="docs/images/01_lidar_pointcloud_3d.png" width="430"><br><sub>Velodyne HDL-64E 점군 (프레임 0, 3D)</sub></td>
+<td align="center"><img src="docs/images/01_lidar_pointcloud_bev.png" width="300"><br><sub>같은 프레임 BEV (x 전방 ↑, y 좌 ←, 색 = 높이 z)</sub></td>
+</tr></table>
+<p align="center"><sub>LiDAR 한 프레임의 실제 값: <code>(123839, 4) float32</code> = [x, y, z, reflectance]. x −78.9~78.1 m, y −69.1~71.4 m, z −3.5~2.9 m (지면 ≈ −1.7 m, 센서 높이 1.73 m), r 0~0.99. 첫 점 = (48.37, 11.55, 1.89, 0.10).</sub></p>
+
+
 ## 시스템 구성
 
 ```text
@@ -43,6 +55,7 @@ python scripts/run_pipeline.py --variant raw          # Phase 5: outputs/phase5/
 python scripts/run_pipeline.py --variant clustered    # Phase 6: outputs/phase6/objects_clustered.json
 python scripts/run_pipeline.py --variant tracked      # Phase 7: outputs/phase7/tracks.json + 궤적 그림
 python scripts/evaluate.py                            # Phase 8: outputs/phase8/results.md, plots/, runtime.md
+python scripts/run_system.py                          # 전체 통합: 로드→YOLO→융합→추적→시각화(mp4)→평가, outputs/system/
 scripts/build_cpp.sh && python scripts/benchmark_projection.py   # Phase 10
 scripts/ros2_demo.sh                                  # Phase 9 (ROS2 Jazzy 필요)
 jupyter nbconvert --to notebook --execute --inplace notebooks/0*.ipynb   # 학습 노트북 재실행
@@ -158,7 +171,7 @@ src/perceptrack3d/        data · geometry · detection · fusion · tracking ·
 notebooks/01~06           단계별 학습 노트북 (완성본, 실행 결과 포함)
 notebooks_2nd/01~08       실무 방식(출처→원문→적용→검증) 재구성 학습 노트북 + sources/
 tests/                    pytest (파서·변환·투영·할당·융합·메트릭·C++ 일치)
-scripts/                  run_detection · run_pipeline · evaluate · benchmark_projection · ros2_demo
+scripts/                  run_system(통합 한 파일) · run_detection · run_pipeline · evaluate · benchmark_projection · ros2_demo
 cpp/                      C++17 라이브러리 + gtest + pybind11 모듈
 ros2_ws/                  ROS2 Jazzy 패키지 perceptrack3d_ros (노드 6, launch, rviz)
 docs/                     architecture · decisions · references · learning_notes · images
