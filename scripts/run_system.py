@@ -8,14 +8,16 @@ KITTI 프레임 하나가 아래 여섯 단계를 순서대로 지난다. 각 �
                   (내부에서 [3a] 투영 → [3b] ROI·지면 제거 → [3c] 박스 안 점 → [3d] DBSCAN → [3e] 표면→중심 오프셋)
     [4] 추적      KalmanTracker.step            → list[Track]              (track_id, state [x,y,z,vx,vy,vz])
     [5] 시각화    이미지(2D 박스 + 트랙 ID) + BEV(점 + 트랙 + GT)          → PNG / mp4 / 화면
+                  --view3d: LiDAR 3D 뷰(자차 뒤 위 카메라, 높이 색 점군 + 트랙·GT 3D 박스)  → lidar3d.mp4 / 화면
     [6] 평가      evaluate_variant (tracklet GT 와 BEV 2 m 매칭)            → 재현율·정밀도·중심 오차·IDSW, 런타임
 
 실행 예
     .venv/bin/python scripts/run_system.py                      # 297 프레임, mp4 + 요약
     .venv/bin/python scripts/run_system.py --frames 0 60 --show # 60 프레임, 창으로 보면서
     .venv/bin/python scripts/run_system.py --fusion raw --no-video
+    .venv/bin/python scripts/run_system.py --view3d --show        # LiDAR 3D 창까지 함께
 
-출력  outputs/system/perceptrack3d.mp4, outputs/system/frames/frame{N}.png, outputs/system/summary.md
+출력  outputs/system/perceptrack3d.mp4, frames/frame{N}.png, summary.md, (--view3d) lidar3d.mp4, lidar3d/frame{N}.png
 """
 from __future__ import annotations
 
@@ -37,6 +39,7 @@ from perceptrack3d.fusion.frustum_fusion import fuse_frame_clustered, fuse_frame
 from perceptrack3d.geometry.calibration import KittiCalibration
 from perceptrack3d.tracking.kalman_tracker import KalmanTracker
 from perceptrack3d.visualization.boxes2d import draw_detections
+from perceptrack3d.visualization.lidar3d import LidarView3D, track_color
 from perceptrack3d.visualization.track_frames import plot_frame_tracks
 
 
@@ -48,6 +51,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--no-video", action="store_true", help="프레임 PNG·mp4 를 만들지 않는다 (평가·런타임만)")
     p.add_argument("--show", action="store_true", help="프레임마다 창에 띄운다 (q 로 중단)")
     p.add_argument("--no-eval", action="store_true")
+    p.add_argument("--view3d", action="store_true", help="LiDAR 3D 뷰도 만든다 (lidar3d.mp4, --show 면 창)")
     return p.parse_args()
 
 
@@ -56,6 +60,7 @@ def main() -> None:
     cfg = load_config(args.config)
     out_dir = Path(cfg["outputs"]["dir"]) / "system"
     (out_dir / "frames").mkdir(parents=True, exist_ok=True)
+    (out_dir / "lidar3d").mkdir(exist_ok=True)
 
     # ---- 준비: 데이터·캘리브레이션·검출기·트래커·GT --------------------------------------------
     ds = KittiDataset(cfg)
@@ -71,6 +76,8 @@ def main() -> None:
     history: dict[int, list] = collections.defaultdict(list)            # track_id → 관측된 위치들 (BEV 궤적)
     runtime: list[dict] = []
     writer: cv2.VideoWriter | None = None
+    view3d = LidarView3D() if args.view3d else None                      # EGL 오프스크린 렌더러 (초기화 ~0.6 s)
+    writer3d: cv2.VideoWriter | None = None
 
     # ---- 프레임 루프: 한 프레임이 시스템을 통과하는 경로 --------------------------------------------
     for fid in tqdm(frame_ids, desc=f"perceptrack3d ({args.fusion})"):
@@ -99,8 +106,9 @@ def main() -> None:
         if args.no_video and not args.show:
             continue
         # [5] 시각화: 위 = 2D 박스 + 트랙 ID 를 투영한 이미지, 아래 = BEV (점 + 트랙 + 궤적 + GT 초록 박스)
+        gt_f = gt_in_front_fov(gts.get(fid, []))
         png = plot_frame_tracks(draw_detections(img, dets), tracks, pts, calib, out_dir / "frames" / f"frame{fid:04d}.png",
-                                gt=gt_in_front_fov(gts.get(fid, [])), frame_id=fid,
+                                gt=gt_f, frame_id=fid,
                                 history={k: np.asarray(v) for k, v in history.items()})
         canvas = cv2.imread(str(png))
         if not args.no_video:
@@ -108,12 +116,27 @@ def main() -> None:
                 h, w = canvas.shape[:2]
                 writer = cv2.VideoWriter(str(out_dir / "perceptrack3d.mp4"), cv2.VideoWriter_fourcc(*"mp4v"), 10.0, (w, h))
             writer.write(canvas)
+        if view3d is not None:
+            # [5b] LiDAR 3D 뷰: 트랙 박스(ID 색, 크기 없으면 승용차 기본값) + GT 박스(초록). 점 색 = 높이
+            boxes = [(tr.position, tr.size if tr.size is not None else (4.0, 1.8, 1.6), 0.0, track_color(tr.track_id))
+                     for tr in tracks]
+            boxes += [(g.center, g.size, g.yaw, (0.2, 1.0, 0.3)) for g in gt_f]
+            img3d = view3d.render(pts, boxes, label=f"frame {fid}   tracks {len(tracks)}   GT {len(gt_f)}")
+            cv2.imwrite(str(out_dir / "lidar3d" / f"frame{fid:04d}.png"), img3d)
+            if not args.no_video:
+                if writer3d is None:
+                    h, w = img3d.shape[:2]
+                    writer3d = cv2.VideoWriter(str(out_dir / "lidar3d.mp4"), cv2.VideoWriter_fourcc(*"mp4v"), 10.0, (w, h))
+                writer3d.write(img3d)
+            if args.show:
+                cv2.imshow("PercepTrack3D LiDAR 3D", img3d)
         if args.show:
             cv2.imshow("PercepTrack3D  (q: quit)", canvas)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
-    if writer is not None:
-        writer.release()
+    for wr in (writer, writer3d):
+        if wr is not None:
+            wr.release()
     if args.show:
         cv2.destroyAllWindows()
     frame_ids = list(tracks_by_frame)                                   # q 로 중단했으면 처리한 프레임까지만 평가
