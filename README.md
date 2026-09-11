@@ -56,6 +56,7 @@ python scripts/run_pipeline.py --variant clustered    # Phase 6: outputs/phase6/
 python scripts/run_pipeline.py --variant tracked      # Phase 7: outputs/phase7/tracks.json + 궤적 그림
 python scripts/evaluate.py                            # Phase 8: outputs/phase8/results.md, plots/, runtime.md
 python scripts/run_system.py                          # 전체 통합: 로드→YOLO→융합→추적→시각화(mp4)→평가, outputs/system/
+python scripts/run_system.py --view3d --show          # + LiDAR 3D 뷰 창 (점군 + 3D 박스), outputs/system/lidar3d.mp4
 scripts/build_cpp.sh && python scripts/benchmark_projection.py   # Phase 10
 scripts/ros2_demo.sh                                  # Phase 9 (ROS2 Jazzy 필요)
 jupyter nbconvert --to notebook --execute --inplace notebooks/0*.ipynb   # 학습 노트북 재실행
